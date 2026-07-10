@@ -1,12 +1,4 @@
-import os
-from openai import OpenAI
-from dotenv import load_dotenv
-
-load_dotenv()
-
-client = OpenAI(
-    api_key=os.getenv("OPENAI_API_KEY")
-)
+from ollama import chat
 
 
 def ask_llm(context, question):
@@ -32,8 +24,8 @@ Provide:
 3. Mention evidence
 """
 
-    response = client.chat.completions.create(
-        model="gpt-4.1-mini",   # or another compatible model available to your API
+    response = chat(
+        model="llama3.2",
         messages=[
             {
                 "role": "user",
@@ -42,4 +34,4 @@ Provide:
         ]
     )
 
-    return response.choices[0].message.content
+    return response["message"]["content"]

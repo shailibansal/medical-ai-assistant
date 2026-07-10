@@ -1,6 +1,6 @@
 from Bio import Entrez
 
-Entrez.email = "your_email@gmail.com"
+Entrez.email = "shailib23@gmail.com"
 
 
 def search_pubmed(query, max_results=5):
