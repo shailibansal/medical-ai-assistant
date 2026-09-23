@@ -1,71 +1,106 @@
 from Bio import Entrez
 
 Entrez.email = "shailib23@gmail.com"
+Entrez.timeout = 10
 
 
-def search_pubmed(query, max_results=5):
-    handle = Entrez.esearch(
-        db="pubmed",
-        term=query,
-        retmax=max_results
-    )
+def search_pubmed(query, max_results=5, recent_years=5):
+    """
+    Search PubMed for papers related to the query.
 
-    results = Entrez.read(handle)
-    handle.close()
+    Only papers from the recent_years window are retrieved.
+    """
 
-    return results["IdList"]
+    try:
+        # PubMed date filter
+        date_filter = f'("last {recent_years} years"[dp])'
+
+        search_term = f"({query}) AND {date_filter}"
+
+        handle = Entrez.esearch(
+            db="pubmed",
+            term=search_term,
+            retmax=max_results,
+            sort="relevance"
+        )
+
+        results = Entrez.read(handle)
+        handle.close()
+
+        return results["IdList"]
+
+    except Exception as e:
+        print(f"PubMed search error: {e}")
+        return []
 
 
 def fetch_papers(id_list):
+    if not id_list:
+        return []
 
-    ids = ",".join(id_list)
+    try:
+        ids = ",".join(id_list)
 
-    handle = Entrez.efetch(
-        db="pubmed",
-        id=ids,
-        rettype="abstract",
-        retmode="xml"
-    )
+        handle = Entrez.efetch(
+            db="pubmed",
+            id=ids,
+            rettype="abstract",
+            retmode="xml"
+        )
 
-    records = Entrez.read(handle)
-    handle.close()
+        records = Entrez.read(handle)
+        handle.close()
 
-    papers = []
+        papers = []
+        articles = records["PubmedArticle"]
 
-    articles = records["PubmedArticle"]
+        for article in articles:
 
-    for article in articles:
+            citation = article["MedlineCitation"]
+            article_info = citation["Article"]
 
-        citation = article["MedlineCitation"]
-        article_info = citation["Article"]
+            title = article_info.get("ArticleTitle", "")
 
-        title = article_info.get("ArticleTitle", "")
+            abstract = ""
 
-        abstract = ""
+            if "Abstract" in article_info:
+                abstract = " ".join(
+                    str(text)
+                    for text in article_info["Abstract"]["AbstractText"]
+                )
 
-        if "Abstract" in article_info:
-            abstract = " ".join(
-                article_info["Abstract"]["AbstractText"]
-            )
+            journal = article_info.get(
+                "Journal", {}
+            ).get("Title", "")
 
-        journal = article_info["Journal"]["Title"]
+            authors = []
 
-        authors = []
+            if "AuthorList" in article_info:
 
-        if "AuthorList" in article_info:
+                for author in article_info["AuthorList"]:
 
-            for author in article_info["AuthorList"]:
+                    if (
+                        "LastName" in author
+                        and "ForeName" in author
+                    ):
+                        authors.append(
+                            author["ForeName"]
+                            + " "
+                            + author["LastName"]
+                        )
 
-                if "LastName" in author and "ForeName" in author:
-                    authors.append(
-                        author["ForeName"] + " " + author["LastName"]
-                    )
+            pmid = citation["PMID"]
 
-        papers.append({
-            "title": title,
-            "abstract": abstract,
-            "journal": journal,
-            "authors": authors
-        })
+            papers.append({
+                "pmid": str(pmid),
+                "title": str(title),
+                "abstract": abstract,
+                "journal": str(journal),
+                "authors": authors
+            })
 
-    return papers
+        return papers
+
+    except Exception as e:
+        print(f"PubMed fetch error: {e}")
+        return []
